@@ -1,0 +1,83 @@
+library(CORElearn)
+library(e1071)
+library(rpart)
+library(randomForest)
+
+data <- read.table("regular.txt", sep=",",header=T)
+
+data$PD <- abs(data$HPTS - data$APTS)
+
+set<- data
+
+
+
+set$H2PM<-NULL
+set$H3PM<-NULL
+set$HFTM<-NULL
+set$A2PM<-NULL
+set$A3PM<-NULL
+set$AFTM<-NULL
+set$H2PA<-NULL
+set$H3PA<-NULL
+set$HFTA<-NULL
+set$A2PA<-NULL
+set$A3PA<-NULL
+set$AFTA<-NULL
+set$SEASON<-NULL
+set$DATE<-NULL
+set$HOME<-NULL
+set$AWAY<-NULL
+
+#razdeli na ueno in testno množico
+n<-nrow(set)*0.8
+
+learn <- head(set,n)
+test <- tail(set,(nrow(set)-n))
+
+#PD - razlika v toèkah
+observed<-set$PD
+
+modelSVM <- svm(PD ~ ., learn)
+modelLM <- lm(PD ~ ., learn)
+modelRF <- randomForest(PD ~ ., learn)
+modelRTC <- CoreModel(PD ~ ., learn, model="regTree",  modelTypeReg = 1, minNodeWeightTree = 1, selectedPrunerReg = 0)
+modelRTR <- rpart(PD ~ ., learn)
+
+predictedSVM <- predict(modelSVM, test)
+predictedLM <- predict(modelLM, test)
+predictedRF <- predict(modelRF, test)
+predictedRTC <- predict(modelRTC, test)
+predictedRTR <- predict(modelRTR, test)
+
+rmae <- function(observed, predicted, mean.val) 
+{  
+	sum(abs(observed - predicted)) / sum(abs(observed - mean.val))
+}
+
+rmse <- function(observed, predicted, mean.val) 
+{  
+	sum((observed - predicted)^2)/sum((observed - mean.val)^2)
+}
+
+#RMAE
+rmaeSVM <- rmae(observed, predictedSVM, mean(learn$PD)) 
+rmaeLM <- rmae(observed, predictedLM, mean(learn$PD))
+rmaeRF <- rmae(observed, predictedRF, mean(learn$PD))
+rmaeRTC <- rmae(observed, predictedRTC, mean(learn$PD))
+rmaeRTR <- rmae(observed, predictedRTR, mean(learn$PD))
+
+
+#RMSE
+rmseSVM <- rmse(observed, predictedSVM, mean(learn$PD))
+rmseLM <- rmse(observed, predictedLM, mean(learn$PD))
+rmseRF <- rmse(observed, predictedRF, mean(learn$PD))
+rmseRTC <- rmse(observed, predictedRTC, mean(learn$PD))
+rmseRTR <- rmse(observed, predictedRTR, mean(learn$PD))
+
+#AVG
+avgSVM <- (rmaeSVM + rmseSVM) / 2
+avgLM <- (rmaeLM + rmseLM) / 2
+avgRF <- (rmaeRF + rmseRF) / 2
+avgRTC <- (rmaeRTC + rmseRTC) / 2
+avgRTR <- (rmaeRTR + rmseRTR) / 2
+

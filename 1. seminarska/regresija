@@ -1,0 +1,86 @@
+library(CORElearn)
+library(e1071)
+library(rpart)
+library(randomForest)
+
+team.stats <- function(Hname,Aname,tab,until){
+  t<-tab[1:until,]
+  statsH <- sum(t$HPTS[t$HOME==Hname])
+  statsA <- sum(t$APTS[t$AWAY==Aname]) 
+  statsH <- statsH/nrow(t[t$HOME==Hname,])   
+  statsA <- statsA/nrow(t[t$AWAY==Aname,]) 	
+  stats <- c(statsH,statsA)
+  return(stats)
+}
+
+mk.data <- function(tab){
+  for(i in nrow(tab):1){
+    row <- tab[i,]  #vrstica
+    #name <- c(row[[3]],row[[18]])
+    stats<-team.stats(row[[3]],row[[18]],tab,i)   
+    row[[4]] < - stats[1]
+    row[[19]] <- stats[2]    
+    tab[i,]<-row
+  }
+  return(tab)
+}
+
+data <- read.table("regular.txt", sep=",",header=T)
+set<- mk.data(data)
+set$PD <- abs(set$HPTS - set$APTS)
+
+
+
+#razdeli na ueno in testno množico
+n<-nrow(set)*0.8
+
+learn <- head(set,n)
+test <- tail(set,(nrow(set)-n))
+
+#PD - razlika v toèkah
+observed <- set$PD
+
+modelSVM <- svm(PD ~ ., learn)
+modelLM <- lm(PD ~ ., learn)
+modelRF <- randomForest(PD ~ ., learn)
+modelRTC <- CoreModel(PD ~ ., learn, model="regTree",  modelTypeReg = 1, minNodeWeightTree = 1, selectedPrunerReg = 0)
+modelRTR <- rpart(PD ~ ., learn)
+
+predictedSVM <- predict(modelSVM, test)
+predictedLM <- predict(modelLM, test)
+predictedRF <- predict(modelRF, test)
+predictedRTC <- predict(modelRTC, test)
+predictedRTR <- predict(modelRTR, test)
+
+rmae <- function(observed, predicted, mean.val) 
+{  
+	sum(abs(observed - predicted)) / sum(abs(observed - mean.val))
+}
+
+rmse <- function(observed, predicted, mean.val) 
+{  
+	sum((observed - predicted)^2)/sum((observed - mean.val)^2)
+}
+
+#RMAE
+rmaeSVM <- rmae(observed, predictedSVM, mean(learn$PD)) 
+rmaeLM <- rmae(observed, predictedLM, mean(learn$PD))
+rmaeRF <- rmae(observed, predictedRF, mean(learn$PD))
+rmaeRTC <- rmae(observed, predictedRTC, mean(learn$PD))
+rmaeRTR <- rmae(observed, predictedRTR, mean(learn$PD))
+
+
+#RMSE
+rmseSVM <- rmse(observed, predictedSVM, mean(learn$PD))
+rmseLM <- rmse(observed, predictedLM, mean(learn$PD))
+rmseRF <- rmse(observed, predictedRF, mean(learn$PD))
+rmseRTC <- rmse(observed, predictedRTC, mean(learn$PD))
+rmseRTR <- rmse(observed, predictedRTR, mean(learn$PD))
+
+#AVG
+avgSVM <- (rmaeSVM + rmseSVM) / 2
+avgLM <- (rmaeLM + rmseLM) / 2
+avgRF <- (rmaeRF + rmseRF) / 2
+avgRTC <- (rmaeRTC + rmseRTC) / 2
+avgRTR <- (rmaeRTR + rmseRTR) / 2
+
